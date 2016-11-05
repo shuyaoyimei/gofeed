@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mmcdole/gofeed"
+	"github.com/shuyaoyimei/gofeed"
 	"github.com/stretchr/testify/assert"
 )
 
