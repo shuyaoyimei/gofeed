@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/shuyaoyimei/gofeed/atom"
 	"github.com/shuyaoyimei/gofeed/rss"
+	"github.com/shuyaoyimei/gofeed/sitemap"
 )
 
 // HTTPError represents an HTTP error returned by a server.
@@ -26,11 +28,13 @@ func (err HTTPError) Error() string {
 // a given feed type, parsers it, and translates it
 // to the universal feed type.
 type Parser struct {
-	AtomTranslator Translator
-	RSSTranslator  Translator
-	Client         *http.Client
-	rp             *rss.Parser
-	ap             *atom.Parser
+	AtomTranslator    Translator
+	RSSTranslator     Translator
+	SitemapTranslator Translator
+	Client            *http.Client
+	rp                *rss.Parser
+	ap                *atom.Parser
+	sp                *sitemap.Parser
 }
 
 // NewParser creates a universal feed parser.
@@ -38,6 +42,7 @@ func NewParser() *Parser {
 	fp := Parser{
 		rp: &rss.Parser{},
 		ap: &atom.Parser{},
+		sp: &sitemap.Parser{},
 	}
 	return &fp
 }
@@ -64,7 +69,10 @@ func (f *Parser) Parse(feed io.Reader) (*Feed, error) {
 		return f.parseAtomFeed(r)
 	case FeedTypeRSS:
 		return f.parseRSSFeed(r)
+	case FeedTypeSitemap:
+		return f.parseSitemapFeed(r)
 	}
+
 	return nil, errors.New("Failed to detect feed type")
 }
 
@@ -72,6 +80,30 @@ func (f *Parser) Parse(feed io.Reader) (*Feed, error) {
 // attempts to parse the response into the universal feed type.
 func (f *Parser) ParseURL(feedURL string) (feed *Feed, err error) {
 	client := f.httpClient()
+	resp, err := client.Get(feedURL)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return nil, HTTPError{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+		}
+	}
+
+	defer func() {
+		ce := resp.Body.Close()
+		if ce != nil {
+			err = ce
+		}
+	}()
+
+	return f.Parse(resp.Body)
+}
+
+//ParseURLWithProxy is add proxy for pasre
+func (f *Parser) ParseURLWithProxy(feedURL string, proxy string) (feed *Feed, err error) {
+	client := f.httpClientWithProxy(proxy)
 	resp, err := client.Get(feedURL)
 	if err != nil {
 		return nil, err
@@ -116,6 +148,15 @@ func (f *Parser) parseRSSFeed(feed io.Reader) (*Feed, error) {
 	return f.rssTrans().Translate(rf)
 }
 
+func (f *Parser) parseSitemapFeed(feed io.Reader) (*Feed, error) {
+	sf, err := f.sp.Parse(feed)
+	if err != nil {
+		return nil, err
+	}
+
+	return f.sitemapTrans().Translate(sf)
+}
+
 func (f *Parser) atomTrans() Translator {
 	if f.AtomTranslator != nil {
 		return f.AtomTranslator
@@ -132,10 +173,30 @@ func (f *Parser) rssTrans() Translator {
 	return f.RSSTranslator
 }
 
+func (f *Parser) sitemapTrans() Translator {
+	if f.SitemapTranslator != nil {
+		return f.SitemapTranslator
+	}
+	f.SitemapTranslator = &DefaultSitemapTranslator{}
+	return f.SitemapTranslator
+}
+
 func (f *Parser) httpClient() *http.Client {
 	if f.Client != nil {
 		return f.Client
 	}
 	f.Client = &http.Client{}
+	return f.Client
+}
+
+func (f *Parser) httpClientWithProxy(uRLProxy string) *http.Client {
+	if f.Client != nil {
+		return f.Client
+	}
+	//uRLProxy must be xxx.xxx.xxx.xxx:prot
+	urlProxy := &url.URL{Host: uRLProxy}
+	f.Client = &http.Client{
+		Transport: &http.Transport{Proxy: http.ProxyURL(urlProxy)},
+	}
 	return f.Client
 }

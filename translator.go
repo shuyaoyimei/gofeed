@@ -9,6 +9,7 @@ import (
 	"github.com/shuyaoyimei/gofeed/extensions"
 	"github.com/shuyaoyimei/gofeed/internal/shared"
 	"github.com/shuyaoyimei/gofeed/rss"
+	"github.com/shuyaoyimei/gofeed/sitemap"
 )
 
 // Translator converts a particular feed (atom.Feed or rss.Feed)
@@ -659,5 +660,95 @@ func (t *DefaultAtomTranslator) firstPerson(persons []*atom.Person) (person *ato
 	}
 
 	person = persons[0]
+	return
+}
+
+// DefaultSitemapTranslator converts an sitemap.Feed struct
+// into the generic Feed struct.
+//
+// This default implementation defines a set of
+// mapping rules between sitemap.Feed -> Feed
+// for each of the fields in Feed.//
+type DefaultSitemapTranslator struct{}
+
+// Translate converts an Sitemap feed into the universal
+// feed type.
+func (t *DefaultSitemapTranslator) Translate(feed interface{}) (*Feed, error) {
+	sitemap, found := feed.(*sitemap.Feed)
+	if !found {
+		return nil, fmt.Errorf("Feed did not match expected type of *sitemap.Feed")
+	}
+
+	result := &Feed{}
+	result.Title = t.translateFeedTitle(sitemap)
+	result.Language = sitemap.Language
+	result.Items = t.translateFeedItems(sitemap)
+	result.FeedVersion = sitemap.Version
+	result.FeedType = "rss"
+	return result, nil
+}
+
+func (t *DefaultSitemapTranslator) translateFeedItems(sitemap *sitemap.Feed) (items []*Item) {
+	items = []*Item{}
+	for _, i := range sitemap.Items {
+		items = append(items, t.translateFeedItem(i))
+	}
+	return
+}
+
+func (t *DefaultSitemapTranslator) translateFeedTitle(sitemap *sitemap.Feed) (title string) {
+	if sitemap.Title != "" {
+		title = sitemap.Title
+	} else {
+		title = ""
+	}
+	return
+}
+
+func (t *DefaultSitemapTranslator) translateFeedLanguage(sitemap *sitemap.Feed) (title string) {
+	if sitemap.Language != "" {
+		title = sitemap.Title
+	} else {
+		title = "unknow"
+	}
+	return
+}
+
+func (t *DefaultSitemapTranslator) translateFeedItem(sitemapItem *sitemap.Item) (item *Item) {
+	item = &Item{}
+	item.Title = t.translateItemTitle(sitemapItem)
+	item.Link = t.translateItemLink(sitemapItem)
+	item.Published = t.translateItemPublished(sitemapItem)
+	item.PublishedParsed = t.translateItemPublishedParsed(sitemapItem)
+	item.Image = t.translateItemImage(sitemapItem)
+	return
+}
+
+func (t *DefaultSitemapTranslator) translateItemTitle(sitemapItem *sitemap.Item) (title string) {
+	if sitemapItem.Title != "" {
+		title = sitemapItem.Title
+	} else {
+		title = ""
+	}
+	return
+}
+
+func (t *DefaultSitemapTranslator) translateItemLink(sitemapItem *sitemap.Item) (link string) {
+	return sitemapItem.Link
+}
+
+func (t *DefaultSitemapTranslator) translateItemPublished(sitemapItem *sitemap.Item) (updated string) {
+	return sitemapItem.PubDate
+}
+
+func (t *DefaultSitemapTranslator) translateItemPublishedParsed(sitemapItem *sitemap.Item) (updated *time.Time) {
+	return sitemapItem.PubDateParsed
+}
+
+func (t *DefaultSitemapTranslator) translateItemImage(sitemapItem *sitemap.Item) (image *Image) {
+	if sitemapItem.Image != nil {
+		image = &Image{}
+		image.URL = sitemapItem.Image.Link
+	}
 	return
 }

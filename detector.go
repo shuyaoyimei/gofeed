@@ -20,6 +20,8 @@ const (
 	FeedTypeAtom
 	// FeedTypeRSS represents an RSS feed
 	FeedTypeRSS
+	//FeedTypeSitemap represents a sitemap feed
+	FeedTypeSitemap
 )
 
 // DetectFeedType attempts to determine the type of feed
@@ -41,6 +43,8 @@ func DetectFeedType(feed io.Reader) FeedType {
 		return FeedTypeRSS
 	case "feed":
 		return FeedTypeAtom
+	case "urlset":
+		return FeedTypeSitemap
 	default:
 		return FeedTypeUnknown
 	}
