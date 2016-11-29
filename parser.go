@@ -2,6 +2,7 @@ package gofeed
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -102,9 +103,12 @@ func (f *Parser) ParseURL(feedURL string) (feed *Feed, err error) {
 }
 
 //ParseURLWithProxy is add proxy for pasre
-func (f *Parser) ParseURLWithProxy(feedURL string, proxy string) (feed *Feed, err error) {
-	client := f.httpClientWithProxy(proxy)
-	resp, err := client.Get(feedURL)
+func (f *Parser) ParseURLWithProxy(feedURL string, proxyURL string, proxyName string, porxyPasswd string) (feed *Feed, err error) {
+	client := f.httpClientWithProxy(proxyURL)
+	req, _ := http.NewRequest("GET", feedURL, nil)
+	basePas := base64.StdEncoding.EncodeToString([]byte(proxyName + ":" + porxyPasswd))
+	req.Header.Set("Proxy-Authorization", "Basic "+basePas)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
