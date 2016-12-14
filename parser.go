@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/shuyaoyimei/gofeed/atom"
 	"github.com/shuyaoyimei/gofeed/rss"
@@ -91,7 +92,6 @@ func (f *Parser) ParseURL(feedURL string) (feed *Feed, err error) {
 			Status:     resp.Status,
 		}
 	}
-
 	defer func() {
 		ce := resp.Body.Close()
 		if ce != nil {
@@ -103,23 +103,23 @@ func (f *Parser) ParseURL(feedURL string) (feed *Feed, err error) {
 }
 
 //ParseURLWithProxy is add proxy for pasre
-func (f *Parser) ParseURLWithProxy(feedURL string, proxyURL string, proxyName string, porxyPasswd string) (feed *Feed, err error) {
+func (f *Parser) ParseURLWithProxy(feedURL string, proxyURL string, proxyName string, proxyPasswd string) (feed *Feed, err error) {
 	client := f.httpClientWithProxy(proxyURL)
 	req, _ := http.NewRequest("GET", feedURL, nil)
-	basePas := base64.StdEncoding.EncodeToString([]byte(proxyName + ":" + porxyPasswd))
+	basePas := base64.StdEncoding.EncodeToString([]byte(proxyName + ":" + proxyPasswd))
 	req.Header.Set("Proxy-Authorization", "Basic "+basePas)
 	resp, err := client.Do(req)
+
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		return nil, HTTPError{
 			StatusCode: resp.StatusCode,
 			Status:     resp.Status,
 		}
 	}
-
 	defer func() {
 		ce := resp.Body.Close()
 		if ce != nil {
@@ -189,7 +189,9 @@ func (f *Parser) httpClient() *http.Client {
 	if f.Client != nil {
 		return f.Client
 	}
-	f.Client = &http.Client{}
+	timeout := time.Duration(15 * time.Second)
+
+	f.Client = &http.Client{Timeout: timeout}
 	return f.Client
 }
 
@@ -198,9 +200,16 @@ func (f *Parser) httpClientWithProxy(uRLProxy string) *http.Client {
 		return f.Client
 	}
 	//uRLProxy must be xxx.xxx.xxx.xxx:prot
-	urlProxy := &url.URL{Host: uRLProxy}
+	timeout := time.Duration(15 * time.Second)
+	urlProxys := &url.URL{Host: uRLProxy}
+	// urlProxys, _ := url.Parse(uRLProxy)
 	f.Client = &http.Client{
-		Transport: &http.Transport{Proxy: http.ProxyURL(urlProxy)},
+		Transport: &http.Transport{
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			Proxy: http.ProxyURL(urlProxys),
+		},
+		Timeout: timeout,
 	}
 	return f.Client
 }
