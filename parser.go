@@ -108,6 +108,7 @@ func (f *Parser) ParseURLWithProxy(feedURL string, proxyURL string, proxyName st
 	req, _ := http.NewRequest("GET", feedURL, nil)
 	basePas := base64.StdEncoding.EncodeToString([]byte(proxyName + ":" + proxyPasswd))
 	req.Header.Set("Proxy-Authorization", "Basic "+basePas)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.89 Safari/537.36")
 	resp, err := client.Do(req)
 
 	if err != nil {
@@ -189,7 +190,7 @@ func (f *Parser) httpClient() *http.Client {
 	if f.Client != nil {
 		return f.Client
 	}
-	timeout := time.Duration(15 * time.Second)
+	timeout := time.Duration(30 * time.Second)
 
 	f.Client = &http.Client{Timeout: timeout}
 	return f.Client
@@ -200,13 +201,13 @@ func (f *Parser) httpClientWithProxy(uRLProxy string) *http.Client {
 		return f.Client
 	}
 	//uRLProxy must be xxx.xxx.xxx.xxx:prot
-	timeout := time.Duration(15 * time.Second)
+	timeout := time.Duration(30 * time.Second)
 	urlProxys := &url.URL{Host: uRLProxy}
 	// urlProxys, _ := url.Parse(uRLProxy)
 	f.Client = &http.Client{
 		Transport: &http.Transport{
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
+			TLSHandshakeTimeout:   15 * time.Second,
+			ExpectContinueTimeout: 10 * time.Second,
 			Proxy: http.ProxyURL(urlProxys),
 		},
 		Timeout: timeout,
